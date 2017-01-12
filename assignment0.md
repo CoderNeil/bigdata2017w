@@ -2,7 +2,7 @@ Assignment 0
 ============
 Question 1
 ----------
-perfect 9
+love 4
 
 Question 2
 ----------
@@ -18,13 +18,13 @@ Question 4
 
 Question 5
 ----------
-perfect	310
-perfect zeong	1
-perfect yvonne	1
-perfect yo-yo	1
-perfect youth	3
-perfect your	2
-perfect young-man	1
-perfect you	1
-perfect yoga	1
-perfect yodeling	1
+game    340
+for     219
+and     198
+day     179
+score   161
+world   137
+record  130
+lrb     119
+dark    117
+strangers       113
