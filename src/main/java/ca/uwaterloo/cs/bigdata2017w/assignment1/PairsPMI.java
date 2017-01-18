@@ -62,19 +62,14 @@ public class PairsPMI extends Configured implements Tool {
             Set<String> wordAppear = new HashSet<String>();
             for (int i = 0; i < tokens.size(); i++) {
                 String word = tokens.get(i);
-                if (!wordAppear.contains(word)){
+                if (!wordAppear.contains(word)) {
                     wordAppear.add(word); //check if 1 can be Integer
-                    PAIR.set(word,"*");
-                    context.write(PAIR,ONE);
+                    PAIR.set(word, "*");
+                    context.write(PAIR, ONE);
                 }
-//                BIGRAM.set(tokens.get(i - 1), tokens.get(i));
-//                context.write(BIGRAM, ONE);
-//
-//                BIGRAM.set(tokens.get(i - 1), "*");
-//                context.write(BIGRAM, ONE);
             }
-            PAIR.set("*","*");
-            context.write(PAIR,ONE);
+            PAIR.set("*", "*");
+            context.write(PAIR, ONE);
         }
     }
 
@@ -98,7 +93,6 @@ public class PairsPMI extends Configured implements Tool {
     private static final class MyReducerCount extends
             Reducer<PairOfStrings, IntWritable, PairOfStrings, IntWritable> {
         private static final IntWritable SUM = new IntWritable();
-//        private float marginal = 0.0f;
 
         @Override
         public void reduce(PairOfStrings key, Iterable<IntWritable> values, Context context)
@@ -125,18 +119,17 @@ public class PairsPMI extends Configured implements Tool {
             int totalLines = 0;
 
             if (tokens.size() < 2) return;
-//            HashMap<String,Integer> wordAppear = new HasMap<String, Integer>();
             ArrayList<String> wordAppear = new ArrayList<String>();
             for (int i = 0; i < tokens.size(); i++) {
                 String word = tokens.get(i);
-                if (!wordAppear.contains(word)){
+                if (!wordAppear.contains(word)) {
                     wordAppear.add(word); //check if 1 can be Integer
                 }
             }
-            for (int i = 0; i < wordAppear.size() - 1; i++){
-                for (int j = i+1; j < wordAppear.size(); j++){
-                    PAIR.set(wordAppear.get(i),wordAppear.get(j));
-                    context.write(PAIR,ONE);
+            for (int i = 0; i < wordAppear.size() - 1; i++) {
+                for (int j = i + 1; j < wordAppear.size(); j++) {
+                    PAIR.set(wordAppear.get(i), wordAppear.get(j));
+                    context.write(PAIR, ONE);
                 }
             }
         }
@@ -161,15 +154,15 @@ public class PairsPMI extends Configured implements Tool {
 
     private static final class MyReducerPair extends
             Reducer<PairOfStrings, IntWritable, PairOfStrings, PairOfStrings> {
-//        private static final IntWritable VALUE = new IntWritable();
+        //        private static final IntWritable VALUE = new IntWritable();
         private static final PairOfStrings PMIPAIR = new PairOfStrings();
         private float marginal = 0.0f;
         private int threshold = 10;
         private int totalLines = 0;
-        private HashMap<String,Integer> wordAppear = new HashMap<String,Integer>();
+        private HashMap<String, Integer> wordAppear = new HashMap<String, Integer>();
 
         @Override
-        public void setup(Context context) throws IOException{
+        public void setup(Context context) throws IOException {
             threshold = context.getConfiguration().getInt("threshold", 10);
 
             Path path = new Path("wordCount/part-r-00000");
@@ -179,13 +172,14 @@ public class PairsPMI extends Configured implements Tool {
             SequenceFile.Reader reader =
                     new SequenceFile.Reader(context.getConfiguration(), SequenceFile.Reader.file(path));
 
-            while (reader.next(key,value)){
-                if (key.getLeftElement().equals("*")){
+            while (reader.next(key, value)) {
+                if (key.getLeftElement().equals("*")) {
                     totalLines = Integer.parseInt(value.toString());
-                }else{
-                    wordAppear.put(key.getLeftElement(),Integer.parseInt(value.toString()));
+                } else {
+                    wordAppear.put(key.getLeftElement(), Integer.parseInt(value.toString()));
                 }
             }
+//            System.out.println("==========================am i reading correctly=========" + totalLines);
             reader.close();
 
         }
@@ -198,26 +192,27 @@ public class PairsPMI extends Configured implements Tool {
             while (iter.hasNext()) {
                 sum += iter.next().get();
             }
+//            System.out.println("==========================threshold=========" + threshold + "   sum   " + sum);
 
-            if (sum >= threshold){
-                int numOfX = wordAppear.get(key.getLeftElement());
-                int numOfY = wordAppear.get(key.getRightElement());
+            if (sum >= threshold) {
+                double numOfX = wordAppear.get(key.getLeftElement());
+                double numOfY = wordAppear.get(key.getRightElement());
                 double PMI = Math.log10((sum * totalLines) / (numOfX * numOfY));
+//                System.out.println("==========================num of x =========" + numOfX);
+//                System.out.println("==========================num of y =========" + numOfY);
+                System.out.println("==========================PMI=========" + PMI);
                 PMIPAIR.set(String.valueOf(PMI), String.valueOf(sum));
-                context.write(key,PMIPAIR);
+                context.write(key, PMIPAIR);
             }
-//            if (key.getRightElement().equals("*")) {
-//                VALUE.set(sum);
-//                context.write(key, VALUE);
-//                marginal = sum;
-//            } else {
-//                VALUE.set(sum / marginal);
-//                context.write(key, VALUE);
-//            }
         }
     }
 
-//    prf
+    private static final class MyPartitioner extends Partitioner<PairOfStrings, IntWritable> {
+        @Override
+        public int getPartition(PairOfStrings key, IntWritable value, int numReduceTasks) {
+            return (key.getLeftElement().hashCode() & Integer.MAX_VALUE) % numReduceTasks;
+        }
+    }
 
     /**
      * Creates an instance of this tool.
@@ -269,7 +264,7 @@ public class PairsPMI extends Configured implements Tool {
         countjob.setJobName(PairsPMI.class.getSimpleName());
         countjob.setJarByClass(PairsPMI.class);
 
-        countjob.setNumReduceTasks(args.numReducers);
+        countjob.setNumReduceTasks(1);
 
         FileInputFormat.setInputPaths(countjob, new Path(args.input));
         FileOutputFormat.setOutputPath(countjob, new Path("wordCount"));
@@ -278,16 +273,16 @@ public class PairsPMI extends Configured implements Tool {
         countjob.setMapOutputValueClass(IntWritable.class);
         countjob.setOutputKeyClass(PairOfStrings.class);
         countjob.setOutputValueClass(IntWritable.class);
-        if (args.textOutput) {
-            countjob.setOutputFormatClass(TextOutputFormat.class);
-        } else {
+//        if (args.textOutput) {
+//            countjob.setOutputFormatClass(TextOutputFormat.class);
+//        } else {
             countjob.setOutputFormatClass(SequenceFileOutputFormat.class);
-        }
+//        }
 
         countjob.setMapperClass(MyMapperCount.class);
         countjob.setCombinerClass(MyCombinerCount.class);
         countjob.setReducerClass(MyReducerCount.class);
-//        countjob.setPartitionerClass(MyPartitioner.class);
+        countjob.setPartitionerClass(MyPartitioner.class);
 
         // Delete the output directory if it exists already.
         Path outputDir = new Path("wordCount");
@@ -312,16 +307,16 @@ public class PairsPMI extends Configured implements Tool {
         pairjob.setMapOutputValueClass(IntWritable.class);
         pairjob.setOutputKeyClass(PairOfStrings.class);
         pairjob.setOutputValueClass(IntWritable.class);
-        if (args.textOutput) {
+//        if (args.textOutput) {
             pairjob.setOutputFormatClass(TextOutputFormat.class);
-        } else {
-            pairjob.setOutputFormatClass(SequenceFileOutputFormat.class);
-        }
+//        } else {
+//            pairjob.setOutputFormatClass(SequenceFileOutputFormat.class);
+//        }
 
         pairjob.setMapperClass(MyMapperPair.class);
         pairjob.setCombinerClass(MyCombinerPair.class);
         pairjob.setReducerClass(MyReducerPair.class);
-//        pairjob.setPartitionerClass(MyPartitioner.class);
+        pairjob.setPartitionerClass(MyPartitioner.class);
 
         // Delete the output directory if it exists already.
         outputDir = new Path(args.output);
