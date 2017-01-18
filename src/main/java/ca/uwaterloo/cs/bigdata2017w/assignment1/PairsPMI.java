@@ -60,7 +60,7 @@ public class PairsPMI extends Configured implements Tool {
             if (tokens.size() < 2) return;
 //            HashMap<String,Integer> wordAppear = new HasMap<String, Integer>();
             Set<String> wordAppear = new HashSet<String>();
-            for (int i = 0; i < tokens.size(); i++) {
+            for (int i = 0; i < tokens.size() && i < 40; i++) {
                 String word = tokens.get(i);
                 if (!wordAppear.contains(word)) {
                     wordAppear.add(word); //check if 1 can be Integer
