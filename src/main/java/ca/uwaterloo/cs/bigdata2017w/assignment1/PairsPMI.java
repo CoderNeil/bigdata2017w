@@ -118,7 +118,6 @@ public class PairsPMI extends Configured implements Tool {
 
             int totalLines = 0;
 
-//            if (tokens.size() < 2) return;
             ArrayList<String> wordAppear = new ArrayList<String>();
             for (int i = 0; i < tokens.size() && i < 40; i++) {
                 String word = tokens.get(i);
@@ -157,7 +156,6 @@ public class PairsPMI extends Configured implements Tool {
             Reducer<PairOfStrings, IntWritable, PairOfStrings, PairOfStrings> {
         //        private static final IntWritable VALUE = new IntWritable();
         private static final PairOfStrings PMIPAIR = new PairOfStrings();
-        private float marginal = 0.0f;
         private int threshold = 10;
         private int totalLines = 0;
         private HashMap<String, Integer> wordAppear = new HashMap<String, Integer>();

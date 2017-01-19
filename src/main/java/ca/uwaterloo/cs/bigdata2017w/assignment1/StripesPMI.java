@@ -58,8 +58,6 @@ public class StripesPMI extends Configured implements Tool {
                 throws IOException, InterruptedException {
             List<String> tokens = Tokenizer.tokenize(value.toString());
 
-//            if (tokens.size() < 2) return;
-//            HashMap<String,Integer> wordAppear = new HasMap<String, Integer>();
             Set<String> wordAppear = new HashSet<String>();
             for (int i = 0; i < tokens.size() && i < 40; i++) {
                 String word = tokens.get(i);
@@ -116,18 +114,14 @@ public class StripesPMI extends Configured implements Tool {
         public void map(LongWritable key, Text value, Context context)
                 throws IOException, InterruptedException {
             List<String> tokens = Tokenizer.tokenize(value.toString());
-//            System.out.println("==========================DOES MY MAPPER EVEN RUN?=========");
-
-//            if (tokens.size() < 2) return;
             ArrayList<String> wordAppear = new ArrayList<String>();
-            for (int i = 0; i < tokens.size(); i++) {
+            for (int i = 0; i < tokens.size() && i < 40; i++) {
                 String word = tokens.get(i);
                 if (!wordAppear.contains(word)) {
                     wordAppear.add(word); //check if 1 can be Integer
                 }
             }
-//            System.out.println("==========================IS MY MAPPER FINE11111?=========");
-            for (int i = 0; i < wordAppear.size() && i < 40; i++) {
+            for (int i = 0; i < wordAppear.size(); i++) {
                 MAP.clear();
                 KEY.set(wordAppear.get(i));
                 for (int j = 0; j < wordAppear.size(); j++) {
@@ -136,9 +130,6 @@ public class StripesPMI extends Configured implements Tool {
                 }
                 context.write(KEY, MAP);
             }
-//            System.out.println("==========================IS MY MAPPER FINE?=========");
-
-
         }
     }
 
