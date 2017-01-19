@@ -57,7 +57,7 @@ public class PairsPMI extends Configured implements Tool {
                 throws IOException, InterruptedException {
             List<String> tokens = Tokenizer.tokenize(value.toString());
 
-            if (tokens.size() < 2) return;
+//            if (tokens.size() < 2) return;
 //            HashMap<String,Integer> wordAppear = new HasMap<String, Integer>();
             Set<String> wordAppear = new HashSet<String>();
             for (int i = 0; i < tokens.size() && i < 40; i++) {
@@ -118,7 +118,7 @@ public class PairsPMI extends Configured implements Tool {
 
             int totalLines = 0;
 
-            if (tokens.size() < 2) return;
+//            if (tokens.size() < 2) return;
             ArrayList<String> wordAppear = new ArrayList<String>();
             for (int i = 0; i < tokens.size() && i < 40; i++) {
                 String word = tokens.get(i);
@@ -180,7 +180,7 @@ public class PairsPMI extends Configured implements Tool {
                     wordAppear.put(key.getLeftElement(), Integer.parseInt(value.toString()));
                 }
             }
-            System.out.println("==========================am i reading correctly=========" + totalLines);
+//            System.out.println("==========================am i reading correctly=========" + totalLines);
             reader.close();
 
         }
