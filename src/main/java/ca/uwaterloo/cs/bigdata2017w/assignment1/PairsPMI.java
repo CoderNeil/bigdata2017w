@@ -304,6 +304,12 @@ public class PairsPMI extends Configured implements Tool {
         FileInputFormat.setInputPaths(pairjob, new Path(args.input));
         FileOutputFormat.setOutputPath(pairjob, new Path(args.output));
 
+        pairjob.getConfiguration().setInt("mapred.max.split.size", 1024 * 1024 * 32);
+        pairjob.getConfiguration().set("mapreduce.map.memory.mb", "3072");
+        pairjob.getConfiguration().set("mapreduce.map.java.opts", "-Xmx3072m");
+        pairjob.getConfiguration().set("mapreduce.reduce.memory.mb", "3072");
+        pairjob.getConfiguration().set("mapreduce.reduce.java.opts", "-Xmx3072m");
+
         pairjob.setMapOutputKeyClass(PairOfStrings.class);
         pairjob.setMapOutputValueClass(IntWritable.class);
         pairjob.setOutputKeyClass(PairOfStrings.class);
