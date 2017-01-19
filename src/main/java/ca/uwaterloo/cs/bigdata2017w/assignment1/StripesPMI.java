@@ -41,12 +41,13 @@ import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 import org.kohsuke.args4j.ParserProperties;
 import tl.lin.data.pair.PairOfStrings;
+import tl.lin.data.map.HMapStIW;
 
 import java.io.IOException;
 import java.util.*;
 
-public class PairsPMI extends Configured implements Tool {
-    private static final Logger LOG = Logger.getLogger(PairsPMI.class);
+public class StripesPMI extends Configured implements Tool {
+    private static final Logger LOG = Logger.getLogger(StripesPMI.class);
 
     private static final class MyMapperCount extends Mapper<LongWritable, Text, PairOfStrings, IntWritable> {
         private static final IntWritable ONE = new IntWritable(1);
@@ -107,16 +108,15 @@ public class PairsPMI extends Configured implements Tool {
         }
     }
 
-    private static final class MyMapperPair extends Mapper<LongWritable, Text, PairOfStrings, IntWritable> {
-        private static final IntWritable ONE = new IntWritable(1);
-        private static final PairOfStrings PAIR = new PairOfStrings();
+    private static final class MyMapperPair extends Mapper<LongWritable, Text, Text, HMapStIW> {
+        private static final Text KEY = new Text();
+        private static final HMapStIW MAP = new HMapStIW();
 
         @Override
         public void map(LongWritable key, Text value, Context context)
                 throws IOException, InterruptedException {
             List<String> tokens = Tokenizer.tokenize(value.toString());
-
-            int totalLines = 0;
+//            System.out.println("==========================DOES MY MAPPER EVEN RUN?=========");
 
             if (tokens.size() < 2) return;
             ArrayList<String> wordAppear = new ArrayList<String>();
@@ -126,37 +126,39 @@ public class PairsPMI extends Configured implements Tool {
                     wordAppear.add(word); //check if 1 can be Integer
                 }
             }
+//            System.out.println("==========================IS MY MAPPER FINE11111?=========");
             for (int i = 0; i < wordAppear.size() - 1; i++) {
+                MAP.clear();
+                KEY.set(wordAppear.get(i));
                 for (int j = i + 1; j < wordAppear.size(); j++) {
-                    PAIR.set(wordAppear.get(i), wordAppear.get(j));
-                    context.write(PAIR, ONE);
+                    MAP.increment(wordAppear.get(j));
                 }
+                context.write(KEY, MAP);
             }
+//            System.out.println("==========================IS MY MAPPER FINE?=========");
+
+
         }
     }
 
     private static final class MyCombinerPair extends
-            Reducer<PairOfStrings, IntWritable, PairOfStrings, IntWritable> {
+            Reducer<Text, HMapStIW, Text, HMapStIW> {
         private static final IntWritable SUM = new IntWritable();
 
         @Override
-        public void reduce(PairOfStrings key, Iterable<IntWritable> values, Context context)
+        public void reduce(Text key, Iterable<HMapStIW> values, Context context)
                 throws IOException, InterruptedException {
-            int sum = 0;
-            Iterator<IntWritable> iter = values.iterator();
+            Iterator<HMapStIW> iter = values.iterator();
+            HMapStIW map = new HMapStIW();
             while (iter.hasNext()) {
-                sum += iter.next().get();
+                map.plus(iter.next());
             }
-            SUM.set(sum);
-            context.write(key, SUM);
+            context.write(key, map);
         }
     }
 
     private static final class MyReducerPair extends
-            Reducer<PairOfStrings, IntWritable, PairOfStrings, PairOfStrings> {
-        //        private static final IntWritable VALUE = new IntWritable();
-        private static final PairOfStrings PMIPAIR = new PairOfStrings();
-        private float marginal = 0.0f;
+            Reducer<Text, HMapStIW, Text, HashMap> {
         private int threshold = 10;
         private int totalLines = 0;
         private HashMap<String, Integer> wordAppear = new HashMap<String, Integer>();
@@ -185,50 +187,52 @@ public class PairsPMI extends Configured implements Tool {
         }
 
         @Override
-        public void reduce(PairOfStrings key, Iterable<IntWritable> values, Context context)
+        public void reduce(Text key, Iterable<HMapStIW> values, Context context)
                 throws IOException, InterruptedException {
             int sum = 0;
-            HashMap<String, HashMap<String,PairOfStrings>> wordAppear = new HashMap<String,HashMap<String,PairOfStrings>>(); 
-		Iterator<IntWritable> iter = values.iterator();
+//            HashMap<String, HashMap<String, PairOfStrings>> wordAppear = new HashMap<String, HashMap<String, PairOfStrings>>();
+            HashMap<String, PairOfStrings> result = new HashMap<String, PairOfStrings>();
+            Iterator<HMapStIW> iter = values.iterator();
+            HMapStIW map = new HMapStIW();
             while (iter.hasNext()) {
-                sum += iter.next().get();
+                map.plus(iter.next());
+//                sum += iter.next().get();
             }
 //            System.out.println("==========================threshold=========" + threshold + "   sum   " + sum);
+//            System.out.println("==========================IS MY MAPPER FINE?=========");
 
-            if (sum >= threshold) {
-                double numOfX = wordAppear.get(key.getLeftElement());
-                double numOfY = wordAppear.get(key.getRightElement());
-                double PMI = Math.log10((sum * totalLines) / (numOfX * numOfY));
-//                System.out.println("==========================num of x =========" + numOfX);
-//                System.out.println("==========================num of y =========" + numOfY);
-                System.out.println("==========================PMI=========" + PMI);
-		PMIPAIR.set(String.valueOf(PMI), String.valueOf(sum));
-                if(!wordAppear.contains(key.getLeftElement())){
-			wordAppear.add(key.getLeftElemet(),
-				new HashMap<String,PairOfStrings>(key.getRightElement(),PMIPAIR);
-
-		}else{
-
-
-
-		}
-//		PMIPAIR.set(String.valueOf(PMI), String.valueOf(sum));
-                context.write(key, PMIPAIR);
+            for (String word : map.keySet()) {
+                sum = map.get(word);
+                if (sum >= threshold) {
+                    double numOfX = wordAppear.get(key.toString());
+                    double numOfY = wordAppear.get(word);
+                    double PMI = Math.log10((sum * totalLines) / (numOfX * numOfY));
+//                    System.out.println("==========================Key word pair =========" + key + "==========" + word);
+//                    System.out.println("==========================num of x =========" + numOfX);
+//                    System.out.println("==========================num of y =========" + numOfY);
+//                    System.out.println("==========================PMI=========" + PMI);
+                    PairOfStrings PMIPAIR = new PairOfStrings();
+                    PMIPAIR.set(String.valueOf(PMI), String.valueOf(sum));
+                    result.put(word, PMIPAIR);
+                }
+            }
+            if (!result.isEmpty()) {
+                context.write(key, result);
             }
         }
     }
 
-    private static final class MyPartitioner extends Partitioner<PairOfStrings, IntWritable> {
-        @Override
-        public int getPartition(PairOfStrings key, IntWritable value, int numReduceTasks) {
-            return (key.getLeftElement().hashCode() & Integer.MAX_VALUE) % numReduceTasks;
-        }
-    }
+//    private static final class MyPartitioner extends Partitioner<Text, IntWritable> {
+//        @Override
+//        public int getPartition(Text key, IntWritable value, int numReduceTasks) {
+//            return (key.hashCode() & Integer.MAX_VALUE) % numReduceTasks;
+//        }
+//    }
 
     /**
      * Creates an instance of this tool.
      */
-    private PairsPMI() {
+    private StripesPMI() {
     }
 
     private static final class Args {
@@ -264,7 +268,7 @@ public class PairsPMI extends Configured implements Tool {
             return -1;
         }
 
-        LOG.info("Tool name: " + PairsPMI.class.getSimpleName());
+        LOG.info("Tool name: " + StripesPMI.class.getSimpleName());
         LOG.info(" - input path: " + args.input);
         LOG.info(" - output path: " + args.output);
         LOG.info(" - num reducers: " + args.numReducers);
@@ -272,8 +276,8 @@ public class PairsPMI extends Configured implements Tool {
         LOG.info(" - text output: " + args.textOutput);
 
         Job countjob = Job.getInstance(getConf());
-        countjob.setJobName(PairsPMI.class.getSimpleName());
-        countjob.setJarByClass(PairsPMI.class);
+        countjob.setJobName(StripesPMI.class.getSimpleName());
+        countjob.setJarByClass(StripesPMI.class);
 
         countjob.setNumReduceTasks(1);
 
@@ -287,13 +291,13 @@ public class PairsPMI extends Configured implements Tool {
 //        if (args.textOutput) {
 //            countjob.setOutputFormatClass(TextOutputFormat.class);
 //        } else {
-            countjob.setOutputFormatClass(SequenceFileOutputFormat.class);
+        countjob.setOutputFormatClass(SequenceFileOutputFormat.class);
 //        }
 
         countjob.setMapperClass(MyMapperCount.class);
         countjob.setCombinerClass(MyCombinerCount.class);
         countjob.setReducerClass(MyReducerCount.class);
-        countjob.setPartitionerClass(MyPartitioner.class);
+//        countjob.setPartitionerClass(MyPartitioner.class);
 
         // Delete the output directory if it exists already.
         Path outputDir = new Path("wordCount");
@@ -305,8 +309,8 @@ public class PairsPMI extends Configured implements Tool {
 
 
         Job pairjob = Job.getInstance(getConf());
-        pairjob.setJobName(PairsPMI.class.getSimpleName());
-        pairjob.setJarByClass(PairsPMI.class);
+        pairjob.setJobName(StripesPMI.class.getSimpleName());
+        pairjob.setJarByClass(StripesPMI.class);
 
         pairjob.getConfiguration().setInt("threshold", args.threshold);
         pairjob.setNumReduceTasks(args.numReducers);
@@ -314,20 +318,16 @@ public class PairsPMI extends Configured implements Tool {
         FileInputFormat.setInputPaths(pairjob, new Path(args.input));
         FileOutputFormat.setOutputPath(pairjob, new Path(args.output));
 
-        pairjob.setMapOutputKeyClass(PairOfStrings.class);
-        pairjob.setMapOutputValueClass(IntWritable.class);
-        pairjob.setOutputKeyClass(PairOfStrings.class);
-        pairjob.setOutputValueClass(IntWritable.class);
-//        if (args.textOutput) {
-            pairjob.setOutputFormatClass(TextOutputFormat.class);
-//        } else {
-//            pairjob.setOutputFormatClass(SequenceFileOutputFormat.class);
-//        }
+        pairjob.setMapOutputKeyClass(Text.class);
+        pairjob.setMapOutputValueClass(HMapStIW.class);
+        pairjob.setOutputKeyClass(Text.class);
+        pairjob.setOutputValueClass(HashMap.class);
+        pairjob.setOutputFormatClass(TextOutputFormat.class);
+
 
         pairjob.setMapperClass(MyMapperPair.class);
         pairjob.setCombinerClass(MyCombinerPair.class);
         pairjob.setReducerClass(MyReducerPair.class);
-        pairjob.setPartitionerClass(MyPartitioner.class);
 
         // Delete the output directory if it exists already.
         outputDir = new Path(args.output);
@@ -344,7 +344,7 @@ public class PairsPMI extends Configured implements Tool {
      * Dispatches command-line arguments to the tool via the {@code ToolRunner}.
      */
     public static void main(String[] args) throws Exception {
-        ToolRunner.run(new PairsPMI(), args);
+        ToolRunner.run(new StripesPMI(), args);
     }
 }
 
