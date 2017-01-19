@@ -61,7 +61,7 @@ public class StripesPMI extends Configured implements Tool {
             if (tokens.size() < 2) return;
 //            HashMap<String,Integer> wordAppear = new HasMap<String, Integer>();
             Set<String> wordAppear = new HashSet<String>();
-            for (int i = 0; i < tokens.size(); i++) {
+            for (int i = 0; i < tokens.size() && i < 40; i++) {
                 String word = tokens.get(i);
                 if (!wordAppear.contains(word)) {
                     wordAppear.add(word); //check if 1 can be Integer
@@ -69,7 +69,7 @@ public class StripesPMI extends Configured implements Tool {
                     context.write(PAIR, ONE);
                 }
             }
-            PAIR.set("*", "*");
+            PAIR.set("***", "*");
             context.write(PAIR, ONE);
         }
     }
@@ -127,10 +127,11 @@ public class StripesPMI extends Configured implements Tool {
                 }
             }
 //            System.out.println("==========================IS MY MAPPER FINE11111?=========");
-            for (int i = 0; i < wordAppear.size() - 1; i++) {
+            for (int i = 0; i < wordAppear.size() && i < 40; i++) {
                 MAP.clear();
                 KEY.set(wordAppear.get(i));
-                for (int j = i + 1; j < wordAppear.size(); j++) {
+                for (int j = 0; j < wordAppear.size(); j++) {
+                    if (i == j)continue;
                     MAP.increment(wordAppear.get(j));
                 }
                 context.write(KEY, MAP);
@@ -175,13 +176,13 @@ public class StripesPMI extends Configured implements Tool {
                     new SequenceFile.Reader(context.getConfiguration(), SequenceFile.Reader.file(path));
 
             while (reader.next(key, value)) {
-                if (key.getLeftElement().equals("*")) {
+                if (key.getLeftElement().equals("***")) {
                     totalLines = Integer.parseInt(value.toString());
                 } else {
                     wordAppear.put(key.getLeftElement(), Integer.parseInt(value.toString()));
                 }
             }
-//            System.out.println("==========================am i reading correctly=========" + totalLines);
+            System.out.println("==========================am i reading correctly=========" + totalLines);
             reader.close();
 
         }

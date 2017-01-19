@@ -68,7 +68,7 @@ public class PairsPMI extends Configured implements Tool {
                     context.write(PAIR, ONE);
                 }
             }
-            PAIR.set("*", "*");
+            PAIR.set("***", "*");
             context.write(PAIR, ONE);
         }
     }
@@ -120,14 +120,15 @@ public class PairsPMI extends Configured implements Tool {
 
             if (tokens.size() < 2) return;
             ArrayList<String> wordAppear = new ArrayList<String>();
-            for (int i = 0; i < tokens.size(); i++) {
+            for (int i = 0; i < tokens.size() && i < 40; i++) {
                 String word = tokens.get(i);
                 if (!wordAppear.contains(word)) {
                     wordAppear.add(word); //check if 1 can be Integer
                 }
             }
-            for (int i = 0; i < wordAppear.size() - 1; i++) {
-                for (int j = i + 1; j < wordAppear.size(); j++) {
+            for (int i = 0; i < wordAppear.size(); i++) {
+                for (int j = 0; j < wordAppear.size(); j++) {
+                    if (i == j) continue;
                     PAIR.set(wordAppear.get(i), wordAppear.get(j));
                     context.write(PAIR, ONE);
                 }
@@ -173,13 +174,13 @@ public class PairsPMI extends Configured implements Tool {
                     new SequenceFile.Reader(context.getConfiguration(), SequenceFile.Reader.file(path));
 
             while (reader.next(key, value)) {
-                if (key.getLeftElement().equals("*")) {
+                if (key.getLeftElement().equals("***")) {
                     totalLines = Integer.parseInt(value.toString());
                 } else {
                     wordAppear.put(key.getLeftElement(), Integer.parseInt(value.toString()));
                 }
             }
-//            System.out.println("==========================am i reading correctly=========" + totalLines);
+            System.out.println("==========================am i reading correctly=========" + totalLines);
             reader.close();
 
         }
@@ -200,7 +201,7 @@ public class PairsPMI extends Configured implements Tool {
                 double PMI = Math.log10((sum * totalLines) / (numOfX * numOfY));
 //                System.out.println("==========================num of x =========" + numOfX);
 //                System.out.println("==========================num of y =========" + numOfY);
-                System.out.println("==========================PMI=========" + PMI);
+//                System.out.println("==========================PMI=========" + PMI);
                 PMIPAIR.set(String.valueOf(PMI), String.valueOf(sum));
                 context.write(key, PMIPAIR);
             }
