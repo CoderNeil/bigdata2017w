@@ -26,6 +26,7 @@ import org.apache.spark.SparkContext
 import org.apache.spark.SparkConf
 import org.rogach.scallop._
 import org.apache.spark.Partitioner
+import org.apache.spark.HashPartitioner
 import org.apache.spark.util.{CollectionsUtils, Utils}
 
 
@@ -37,23 +38,13 @@ class Conf(args: Seq[String]) extends ScallopConf(args) with Tokenizer {
   verify()
 }
 
-// class MyPartitioner(partitions : Int) extends Partitioner{
-// 	def numPartitions = partitions
-// }
-
-class HashPartitioner(partitions: Int) extends Partitioner {
+class MyPartitioner(partitions: Int) extends Partitioner {
+  require(partitions >= 0)
   def numPartitions: Int = partitions
   def getPartition(key: Any): Int = key match {
     case null => 0
-    case (k1,k2) => (k1.hashCode & Int.MaxValue) % numPartitions
+    case (key1,key2) => (key1.hashCode & Integer.MAX_VALUE) % numPartitions
   }
-  override def equals(other: Any): Boolean = other match {
-    case h: HashPartitioner =>
-      h.numPartitions == numPartitions
-    case _ =>
-      false
-  }
-  override def hashCode: Int = numPartitions
 }
 
 object ComputeBigramRelativeFrequencyPairs extends Tokenizer {
@@ -74,15 +65,15 @@ object ComputeBigramRelativeFrequencyPairs extends Tokenizer {
 
     val textFile = sc.textFile(args.input())
     var marginal = 0.0
-    var sum = 0.0
+    // var sum = 0.0
 
     val counts = textFile
       .flatMap(line => {
         val tokens = tokenize(line)
         // println (tokens)
         if (tokens.length > 1) {
-        	val pairs = tokens.sliding(2).map(p => p.mkString(" ")).toList 
-        	val single = tokens.map(s => (s, "*"))
+        	val pairs = tokens.sliding(2).map(p => (p.head.mkString,p.tail.mkString)).toList 
+        	val single = tokens.init.map(p => (p, "*"))
         	pairs ++ single
         }
         else {
@@ -96,35 +87,27 @@ object ComputeBigramRelativeFrequencyPairs extends Tokenizer {
       	(bigram, 1)
       })
       .reduceByKey(_ + _)
-      .repartitionAndSortWithinPartitions(new HashPartitioner(args.reducers()))
+      .repartitionAndSortWithinPartitions(new MyPartitioner(args.reducers()))
       .map( bigram => bigram._1 match {
       	case (_,"*") => {
-      		println (bigram._1)
-      	println (bigram._2)
+      	// 	println (bigram._1)
+      	// println (bigram._2)
       		marginal = bigram._2
-      		sum = bigram._2
+      		// sum = bigram._2
+          (bigram._1, bigram._2)
       	}
       	case (_,_) => {
-      		println (bigram._1)
-      	println (bigram._2)
-      		sum = bigram._2 / marginal
+      	// 	println (bigram._1)
+      	// println (bigram._2)
+      		// sum = bigram._2 / marginal
+          (bigram._1, bigram._2 / marginal)
       	} 
-      	(bigram._1, sum)
+      	
       })
-      // .map{ case ((key1,key2),value) => {
-      // 	println (key1)
-      // 	println (key2)
-      // 	println (value)
-      // 	var marginal = 0
-      // 		if (key2 == "*"){
-      // 			marginal = value
-      // 			((key1, key2), value)
-      // 		}
-      // 		else {
-      // 			var sum = value / marginal
-      // 			((key1,key2),sum)
-      // 		}
-      // 	}}
+      .map( bigram => {
+        ("(" + bigram._1._1 + ", " + bigram._1._2 + ")") + " " + bigram._2
+        })
     counts.saveAsTextFile(args.output())
   }
 }
+
