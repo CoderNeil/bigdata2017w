@@ -1,32 +1,46 @@
-package ca.uwaterloo.cs.bigdata2016w.v2kovac.assignment2;
+/**
+  * Bespin: reference implementations of "big data" algorithms
+  *
+  * Licensed under the Apache License, Version 2.0 (the "License");
+  * you may not use this file except in compliance with the License.
+  * You may obtain a copy of the License at
+  *
+  * http://www.apache.org/licenses/LICENSE-2.0
+  *
+  * Unless required by applicable law or agreed to in writing, software
+  * distributed under the License is distributed on an "AS IS" BASIS,
+  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  * See the License for the specific language governing permissions and
+  * limitations under the License.
+  */
 
+package ca.uwaterloo.cs.bigdata2017w.assignment2
+
+import io.bespin.scala.util.Tokenizer
+
+import org.apache.log4j._
 import collection.mutable.HashMap
 import scala.collection.JavaConverters._
-import java.util.StringTokenizer
-import org.apache.log4j._
 import org.apache.hadoop.fs._
 import org.apache.spark.SparkContext
 import org.apache.spark.SparkConf
-import org.apache.spark.Partitioner
 import org.rogach.scallop._
+import org.apache.spark.Partitioner
 import org.apache.spark.util.{CollectionsUtils, Utils}
 
-trait Tokenizer {
-  def tokenize(s: String): List[String] = {
-    new StringTokenizer(s).asScala.toList
-      .map(_.asInstanceOf[String].toLowerCase().replaceAll("(^[^a-z]+|[^a-z]+$)", ""))
-      .filter(_.length != 0)
-  }
-}
 
-class Conf(args: Seq[String]) extends ScallopConf(args) with Tokenizer  {
+class Conf(args: Seq[String]) extends ScallopConf(args) with Tokenizer {
   mainOptions = Seq(input, output, reducers)
   val input = opt[String](descr = "input path", required = true)
   val output = opt[String](descr = "output path", required = true)
   val reducers = opt[Int](descr = "number of reducers", required = false, default = Some(1))
+  verify()
 }
 
-// Copied HashPartition from spark docs, and changed getParition
+// class MyPartitioner(partitions : Int) extends Partitioner{
+// 	def numPartitions = partitions
+// }
+
 class HashPartitioner(partitions: Int) extends Partitioner {
   def numPartitions: Int = partitions
   def getPartition(key: Any): Int = key match {
@@ -52,31 +66,65 @@ object ComputeBigramRelativeFrequencyPairs extends Tokenizer {
     log.info("Output: " + args.output())
     log.info("Number of reducers: " + args.reducers())
 
-    val conf = new SparkConf().setAppName("Bigram Pairs")
+    val conf = new SparkConf().setAppName("Compute Bigram Relative Frequency Pairs")
     val sc = new SparkContext(conf)
 
     val outputDir = new Path(args.output())
     FileSystem.get(sc.hadoopConfiguration).delete(outputDir, true)
 
+    val textFile = sc.textFile(args.input())
     var marginal = 0.0
+    var sum = 0.0
 
-    val textFile = sc.textFile(args.input(), args.reducers())
-    textFile
+    val counts = textFile
       .flatMap(line => {
         val tokens = tokenize(line)
+        // println (tokens)
         if (tokens.length > 1) {
-          val bigrams = tokens.sliding(2).map(p => (p.head,p.tail.mkString)).toList
-          val individuals = tokens.init.map(w => (w,"*")).toList
-          bigrams ++ individuals
-        } else List()
+        	val pairs = tokens.sliding(2).map(p => p.mkString(" ")).toList 
+        	val single = tokens.map(s => (s, "*"))
+        	pairs ++ single
+        }
+        else {
+         	List()
+     	}
       })
-      .map(bigram => (bigram, 1))
+      .map(bigram => {
+      	// val tokens = bigram.split(" ")
+
+      	// println (bigram)
+      	(bigram, 1)
+      })
       .reduceByKey(_ + _)
       .repartitionAndSortWithinPartitions(new HashPartitioner(args.reducers()))
-      .map(p => p._1 match {
-        case (_,"*") => {marginal = p._2; (p._1,p._2)}
-        case (_,_) => (p._1,p._2 / marginal)
+      .map( bigram => bigram._1 match {
+      	case (_,"*") => {
+      		println (bigram._1)
+      	println (bigram._2)
+      		marginal = bigram._2
+      		sum = bigram._2
+      	}
+      	case (_,_) => {
+      		println (bigram._1)
+      	println (bigram._2)
+      		sum = bigram._2 / marginal
+      	} 
+      	(bigram._1, sum)
       })
-      .saveAsTextFile(args.output())
+      // .map{ case ((key1,key2),value) => {
+      // 	println (key1)
+      // 	println (key2)
+      // 	println (value)
+      // 	var marginal = 0
+      // 		if (key2 == "*"){
+      // 			marginal = value
+      // 			((key1, key2), value)
+      // 		}
+      // 		else {
+      // 			var sum = value / marginal
+      // 			((key1,key2),sum)
+      // 		}
+      // 	}}
+    counts.saveAsTextFile(args.output())
   }
 }
