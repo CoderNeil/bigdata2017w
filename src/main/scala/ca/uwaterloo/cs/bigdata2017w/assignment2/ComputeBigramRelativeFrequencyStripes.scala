@@ -39,6 +39,16 @@ class Conf1(args: Seq[String]) extends ScallopConf(args) with Tokenizer {
   verify()
 }
 
+// class MyPartitioner2(partitions: Int) extends Partitioner {
+//   require(partitions >= 0)
+//   def numPartitions: Int = partitions
+//   def getPartition(key: Any): Int = key match {
+//     case null => 0
+//     case (key1,key2) => (key1.hashCode & Integer.MAX_VALUE) % numPartitions
+//   }
+// }
+
+
 object ComputeBigramRelativeFrequencyStripes extends Tokenizer {
   val log = Logger.getLogger(getClass().getName())
 
@@ -55,7 +65,7 @@ object ComputeBigramRelativeFrequencyStripes extends Tokenizer {
     val outputDir = new Path(args.output())
     FileSystem.get(sc.hadoopConfiguration).delete(outputDir, true)
 
-    val textFile = sc.textFile(args.input(), args.reducers())
+    val textFile = sc.textFile(args.input())
     var marginal = 0.0
     var sum = 0.0
 
@@ -82,6 +92,7 @@ object ComputeBigramRelativeFrequencyStripes extends Tokenizer {
         key ++ temp
         })
       .sortByKey()
+      // .repartitionAndSortWithinPartitions(new MyPartitioner2(args.reducers()))
       .map( bigram => {
         sum = 0
       	val total = bigram._2.map {
@@ -91,20 +102,22 @@ object ComputeBigramRelativeFrequencyStripes extends Tokenizer {
         }
         val term = bigram._2.map {
           case (key,value) => {
-            key -> (bigram._2.get(key).get / sum)
+            // key -> (bigram._2.get(key).get / sum)
+            key.head + "=" + (bigram._2.get(key).get / sum)
           }
         }
-        (bigram._1,term)      	
+        (bigram._1 + " {" + term.mkString(", ") + "}")
+        // (bigram._1,term)      	
       })
-      .map( bigram => {
-        var temp = ""
-        val format = bigram._2.map {
-          case (key,value) => {
-            temp = temp + key.head + "=" + value + ", "
-          }
-        }
-        (bigram._1 + " {" + temp.dropRight(2) + "}")
-        })
+      // .map( bigram => {
+      //   var temp = ""
+      //   val format = bigram._2.map {
+      //     case (key,value) => {
+      //       temp = temp + key.head + "=" + value + ", "
+      //     }
+      //   }
+      //   (bigram._1 + " {" + temp.dropRight(2) + "}")
+      //   })
       .saveAsTextFile(args.output())
   }
 }
