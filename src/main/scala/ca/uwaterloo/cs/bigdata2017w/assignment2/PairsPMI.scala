@@ -97,7 +97,7 @@ object PairsPMI extends Tokenizer {
         (bigram, 1)
       })
       .countByKey
-
+      val threshold = args.threshold()
       val pair = textFile
       .flatMap(line => {
         var wordAppear:Map[String,String] = Map()
@@ -136,6 +136,7 @@ object PairsPMI extends Tokenizer {
       .reduceByKey(_ + _)
       .repartitionAndSortWithinPartitions(new MyPartitioner1(args.reducers()))
       // println ("========================================")
+      .filter( _._2 >= threshold)
       .map (bigram => {
         // println (bigram._1._1)
         val x = words.get(bigram._1._1).get
@@ -143,11 +144,20 @@ object PairsPMI extends Tokenizer {
         val sum = bigram._2
         val pmi = log10((sum * linesCount)/(x * y))
         // println(x, y, sum, pmi, linesCount)
-        (bigram._1,(pmi, sum))
+        // if (sum >= args.threshold()){
+          (bigram._1,(pmi, sum))
+        // }else{
+        //   (("***","***"),(0,0))
+        // }
         })
+      
       .map( bigram => {
+        // if (bigram._1._1 == "***"){
+        //   ("()")
+        // }else{
         ("(" + bigram._1._1 + ", " + bigram._1._2 + ")") + " " + ("(" + bigram._2._1 + ", " + bigram._2._2 + ")")
         })
+    
     .saveAsTextFile(args.output())
   }
 }
