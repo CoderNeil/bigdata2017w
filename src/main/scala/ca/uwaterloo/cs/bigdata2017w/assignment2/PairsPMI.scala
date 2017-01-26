@@ -30,82 +30,85 @@ import org.apache.spark.HashPartitioner
 import org.apache.spark.util.{CollectionsUtils, Utils}
 
 
-class Conf1(args: Seq[String]) extends ScallopConf(args) with Tokenizer {
+class Conf2(args: Seq[String]) extends ScallopConf(args) with Tokenizer {
   mainOptions = Seq(input, output, reducers)
   val input = opt[String](descr = "input path", required = true)
   val output = opt[String](descr = "output path", required = true)
   val reducers = opt[Int](descr = "number of reducers", required = false, default = Some(1))
-  
+  val threshold = opt[Int](descr = "threshold", required = false, default = Some(10))
   verify()
 }
 
-object ComputeBigramRelativeFrequencyStripes extends Tokenizer {
+class MyPartitioner1(partitions: Int) extends Partitioner {
+  require(partitions >= 0)
+  def numPartitions: Int = partitions
+  def getPartition(key: Any): Int = key match {
+    case null => 0
+    case (key1,key2) => (key1.hashCode & Integer.MAX_VALUE) % numPartitions
+  }
+}
+
+object PairsPMI extends Tokenizer {
   val log = Logger.getLogger(getClass().getName())
 
   def main(argv: Array[String]) {
-    val args = new Conf1(argv)
+    val args = new Conf(argv)
 
     log.info("Input: " + args.input())
     log.info("Output: " + args.output())
     log.info("Number of reducers: " + args.reducers())
 
-    val conf = new SparkConf().setAppName("Compute Bigram Relative Frequency Stripes")
+    val conf = new SparkConf().setAppName("Pairs PMI")
     val sc = new SparkContext(conf)
 
     val outputDir = new Path(args.output())
     FileSystem.get(sc.hadoopConfiguration).delete(outputDir, true)
 
-    val textFile = sc.textFile(args.input(), args.reducers())
+    val textFile = sc.textFile(args.input())
     var marginal = 0.0
-    var sum = 0.0
+    // var sum = 0.0
 
     val counts = textFile
       .flatMap(line => {
         val tokens = tokenize(line)
         // println (tokens)
         if (tokens.length > 1) {
-        	val pairs = tokens.sliding(2).map(p => {(p.head, Map(p.tail -> 1.0))}) 
-        	// val single = tokens.init.map(p => (p, "*"))
-          // println (pairs)
-        	pairs
+        	val pairs = tokens.sliding(2).map(p => (p.head.mkString,p.tail.mkString)).toList 
+        	val single = tokens.init.map(p => (p, "*"))
+        	pairs ++ single
         }
         else {
          	List()
      	}
       })
-      .reduceByKey((key, value) => {
-        // println (key)
-        // println (value)
-        val temp = value.map{
-          case (key1, value1) => key1 -> (key.getOrElse(key1, 0.0) + value1) //getorelse?
-        }
-        key ++ temp
-        })
-      .sortByKey(true, args.reducers())
-      .map( bigram => {
-        sum = 0
-      	val total = bigram._2.map {
-          case (key,value) => {
-            sum = sum + value
-          }
-        }
-       // val sum = bigram._2.values.foldLeft(0.0){(a, i) => a + i}
-        val term = bigram._2.map {
-          case (key,value) => {
-            key -> (bigram._2.get(key).get / sum)
-          }
-        }
-        (bigram._1,term)      	
+      .map(bigram => {
+      	// val tokens = bigram.split(" ")
+
+      	// println (bigram)
+      	(bigram, 1)
+      })
+      .reduceByKey(_ + _)
+      .repartitionAndSortWithinPartitions(new MyPartitioner1(args.reducers()))
+      .map( bigram => bigram._1 match {
+      	case (_,"*") => {
+      	// 	println (bigram._1)
+      	// println (bigram._2)
+      		marginal = bigram._2
+      		// sum = bigram._2
+          (bigram._1, bigram._2)
+      	}
+      	case (_,_) => {
+      	// 	println (bigram._1)
+      	// println (bigram._2)
+      		// sum = bigram._2 / marginal
+          (bigram._1, bigram._2 / marginal)
+      	} 
+      	
       })
       .map( bigram => {
-        var temp = ""
-        val format = bigram._2.map {
-          case (key,value) => {
-            temp = temp + key.head + "=" + value + ", "
-          }
-        }
-        (bigram._1 + " {" + temp.dropRight(2) + "}")
+        ("(" + bigram._1._1 + ", " + bigram._1._2 + ")") + " " + bigram._2
         })
     counts.saveAsTextFile(args.output())
   }
 }
+
