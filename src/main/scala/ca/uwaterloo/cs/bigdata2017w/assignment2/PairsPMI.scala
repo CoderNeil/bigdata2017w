@@ -28,6 +28,8 @@ import org.rogach.scallop._
 import org.apache.spark.Partitioner
 import org.apache.spark.HashPartitioner
 import org.apache.spark.util.{CollectionsUtils, Utils}
+import scala.collection.mutable.ListBuffer
+import scala.math.log10
 
 
 class Conf2(args: Seq[String]) extends ScallopConf(args) with Tokenizer {
@@ -68,77 +70,85 @@ object PairsPMI extends Tokenizer {
     val textFile = sc.textFile(args.input())
     var marginal = 0.0
     // var sum = 0.0
-    var totalLines = 0
-    val counts = textFile
+    var linesCount = textFile.count()
+    val words = textFile
       .flatMap(line => {
         var wordAppear:Map[String,String] = Map()
         val tokens = tokenize(line).take(40)
         if (tokens.length > 1) {
-        	val single = tokens.init.map{
+        	val single = tokens.map{
             p => {
               if (wordAppear.contains(p)){
               }
               else {
                 wordAppear = wordAppear + (p -> "*")
-                (p, "*")
+                p
               }
             }
           }
-          val lineNum = Map("***" -> "*")
-        	single ++ lineNum
+          single
+        }
+        else{
+          List()
+        }
+    })
+      .map(bigram => {
+        // println (bigram)
+        (bigram, 1)
+      })
+      .countByKey
+
+      val pair = textFile
+      .flatMap(line => {
+        var wordAppear:Map[String,String] = Map()
+        val tokens = tokenize(line).take(40)
+        if (tokens.length > 1) {
+          val single = tokens.map{
+            p => {
+              if (wordAppear.contains(p)){
+              }
+              else {
+                wordAppear = wordAppear + (p -> "*")
+              }
+            }
+          }
+
+          val aList = new ListBuffer[(String,String)]()
+          for (i <- wordAppear){
+            for (j <- wordAppear){
+              if (i != j){
+                aList += ((i._1, j._1))
+              }
+            }
+          }
+        	aList.toList
         }
         else {
          	List()
      	  }
       })
+      // println ("========================================")
+      // println (counts)
       .map(bigram => {
-      	(bigram, 1)
-      })
-      .reduceByKey(_ + _)
-      // .repartitionAndSortWithinPartitions(new MyPartitioner1(args.reducers()))
-      // .map( pair => pair._1 match {
-      //   case (_,"*") => {
-      //     (pair._1, pair._2)
-      //   }
-      //   case ("***","*") => {
-      //     totalLines = totalLines + 1
-      //   }
-      // })
-      .flatMap( pair => {
-        if (pair._1 == "***"){
-          totalLines = totalLines + 1
-        }else{
-          (pair._1, pair._2)
-        }
-      })
-      println (totalLines)
-      val secondMapper = counts.foreach (pair => {
-          counts.foreach (p => {
-            if (pair._1 == p._1){}
-            else {
-              (pair._1,p._1)
-            }
-          })
-      })
-      .map(bigram => {
-        (bigram, 1)
+        // println (bigram)
+      	(bigram, 1.0)
       })
       .reduceByKey(_ + _)
       .repartitionAndSortWithinPartitions(new MyPartitioner1(args.reducers()))
-      .map( bigram => bigram._1 match {
-      	case (_,"*") => {
-      		marginal = bigram._2
-          (bigram._1, bigram._2)
-      	}
-      	case (_,_) => {
-          (bigram._1, bigram._2 / marginal)
-      	} 
-      	
-      })
-      .map( bigram => {
-        ("(" + bigram._1._1 + ", " + bigram._1._2 + ")") + " " + bigram._2
+      // println ("========================================")
+      .map (bigram => {
+        // println (bigram._1._1)
+        val x = words.get(bigram._1._1).get
+        val y = words.get(bigram._1._2).get
+        val sum = bigram._2
+        val pmi = log10((sum * linesCount)/(x * y))
+        // println(x, y, sum, pmi, linesCount)
+        (bigram._1,(pmi, sum))
         })
-    counts.saveAsTextFile(args.output())
+      .map( bigram => {
+        ("(" + bigram._1._1 + ", " + bigram._1._2 + ")") + " " + ("(" + bigram._2._1 + ", " + bigram._2._2 + ")")
+        })
+    .saveAsTextFile(args.output())
   }
 }
 
