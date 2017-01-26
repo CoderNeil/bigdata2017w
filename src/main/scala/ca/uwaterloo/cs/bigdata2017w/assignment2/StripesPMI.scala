@@ -35,11 +35,11 @@ class Conf1(args: Seq[String]) extends ScallopConf(args) with Tokenizer {
   val input = opt[String](descr = "input path", required = true)
   val output = opt[String](descr = "output path", required = true)
   val reducers = opt[Int](descr = "number of reducers", required = false, default = Some(1))
-  
+  val threshold = opt[Int](descr = "threshold", required = false, default = Some(10))
   verify()
 }
 
-object ComputeBigramRelativeFrequencyStripes extends Tokenizer {
+object StripesPMI extends Tokenizer {
   val log = Logger.getLogger(getClass().getName())
 
   def main(argv: Array[String]) {
@@ -49,7 +49,7 @@ object ComputeBigramRelativeFrequencyStripes extends Tokenizer {
     log.info("Output: " + args.output())
     log.info("Number of reducers: " + args.reducers())
 
-    val conf = new SparkConf().setAppName("Compute Bigram Relative Frequency Stripes")
+    val conf = new SparkConf().setAppName("Stripes PMI")
     val sc = new SparkContext(conf)
 
     val outputDir = new Path(args.output())
@@ -58,6 +58,7 @@ object ComputeBigramRelativeFrequencyStripes extends Tokenizer {
     val textFile = sc.textFile(args.input(), args.reducers())
     var marginal = 0.0
     var sum = 0.0
+    val threshold = args.threshold()
 
     val counts = textFile
       .flatMap(line => {
@@ -89,6 +90,7 @@ object ComputeBigramRelativeFrequencyStripes extends Tokenizer {
             sum = sum + value
           }
         }
+       // val sum = bigram._2.values.foldLeft(0.0){(a, i) => a + i}
         val term = bigram._2.map {
           case (key,value) => {
             key -> (bigram._2.get(key).get / sum)
