@@ -81,7 +81,7 @@ object ComputeBigramRelativeFrequencyStripes extends Tokenizer {
         }
         key ++ temp
         })
-      .sortByKey(true, args.reducers())
+      .sortByKey()
       .map( bigram => {
         sum = 0
       	val total = bigram._2.map {
@@ -106,6 +106,6 @@ object ComputeBigramRelativeFrequencyStripes extends Tokenizer {
         }
         (bigram._1 + " {" + temp.dropRight(2) + "}")
         })
-    counts.saveAsTextFile(args.output())
+      .saveAsTextFile(args.output())
   }
 }

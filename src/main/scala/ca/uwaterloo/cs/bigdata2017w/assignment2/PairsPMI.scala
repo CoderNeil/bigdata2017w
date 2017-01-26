@@ -52,11 +52,12 @@ object PairsPMI extends Tokenizer {
   val log = Logger.getLogger(getClass().getName())
 
   def main(argv: Array[String]) {
-    val args = new Conf(argv)
+    val args = new Conf2(argv)
 
     log.info("Input: " + args.input())
     log.info("Output: " + args.output())
     log.info("Number of reducers: " + args.reducers())
+    log.info("threshold: " + args.threshold())
 
     val conf = new SparkConf().setAppName("Pairs PMI")
     val sc = new SparkContext(conf)
@@ -67,40 +68,69 @@ object PairsPMI extends Tokenizer {
     val textFile = sc.textFile(args.input())
     var marginal = 0.0
     // var sum = 0.0
-
+    var totalLines = 0
     val counts = textFile
       .flatMap(line => {
-        val tokens = tokenize(line)
-        // println (tokens)
+        var wordAppear:Map[String,String] = Map()
+        val tokens = tokenize(line).take(40)
         if (tokens.length > 1) {
-        	val pairs = tokens.sliding(2).map(p => (p.head.mkString,p.tail.mkString)).toList 
-        	val single = tokens.init.map(p => (p, "*"))
-        	pairs ++ single
+        	val single = tokens.init.map{
+            p => {
+              if (wordAppear.contains(p)){
+              }
+              else {
+                wordAppear = wordAppear + (p -> "*")
+                (p, "*")
+              }
+            }
+          }
+          val lineNum = Map("***" -> "*")
+        	single ++ lineNum
         }
         else {
          	List()
-     	}
+     	  }
       })
       .map(bigram => {
-      	// val tokens = bigram.split(" ")
-
-      	// println (bigram)
       	(bigram, 1)
+      })
+      .reduceByKey(_ + _)
+      // .repartitionAndSortWithinPartitions(new MyPartitioner1(args.reducers()))
+      // .map( pair => pair._1 match {
+      //   case (_,"*") => {
+      //     (pair._1, pair._2)
+      //   }
+      //   case ("***","*") => {
+      //     totalLines = totalLines + 1
+      //   }
+      // })
+      .flatMap( pair => {
+        if (pair._1 == "***"){
+          totalLines = totalLines + 1
+        }else{
+          (pair._1, pair._2)
+        }
+      })
+      println (totalLines)
+      val secondMapper = counts.foreach (pair => {
+          counts.foreach (p => {
+            if (pair._1 == p._1){}
+            else {
+              (pair._1,p._1)
+            }
+          })
+      })
+      .map(bigram => {
+        (bigram, 1)
       })
       .reduceByKey(_ + _)
       .repartitionAndSortWithinPartitions(new MyPartitioner1(args.reducers()))
       .map( bigram => bigram._1 match {
       	case (_,"*") => {
-      	// 	println (bigram._1)
-      	// println (bigram._2)
       		marginal = bigram._2
-      		// sum = bigram._2
           (bigram._1, bigram._2)
       	}
       	case (_,_) => {
-      	// 	println (bigram._1)
-      	// println (bigram._2)
-      		// sum = bigram._2 / marginal
           (bigram._1, bigram._2 / marginal)
       	} 
       	
