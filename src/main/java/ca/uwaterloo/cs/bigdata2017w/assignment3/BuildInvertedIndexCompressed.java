@@ -106,7 +106,6 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
         pDocno = 0;
 
         dataStream.flush();
-        // byteStream.flush();
 
         ByteArrayOutputStream tempByte = new ByteArrayOutputStream();
         DataOutputStream tempData = new DataOutputStream(tempByte);
@@ -137,11 +136,9 @@ public class BuildInvertedIndexCompressed extends Configured implements Tool {
     @Override
     public void cleanup (Context context) throws IOException, InterruptedException {
       dataStream.flush();
-        // byteStream.flush();
       ByteArrayOutputStream tempByte = new ByteArrayOutputStream();
         DataOutputStream tempData = new DataOutputStream(tempByte);
         WritableUtils.writeVInt(tempData, df);
-        // byteStream.flush();
         tempData.write(byteStream.toByteArray());
 
         context.write(new Text(prevWord),

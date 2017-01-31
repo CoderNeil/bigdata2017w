@@ -38,7 +38,6 @@ import java.io.DataInputStream;
 import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.WritableUtils;
 import java.io.File;
-// import org.apache.hadoop.fs.FileStatus;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -60,7 +59,6 @@ public class BooleanRetrievalCompressed extends Configured implements Tool {
     // int numOfFiles = new File(indexPath).listFiles().length;
     File[] listOfFiles = new File(indexPath).listFiles();
     index = new MapFile.Reader[listOfFiles.length];
-    // numReducers = listOfFiles.length - 1;
     int count = 0;
     for (int i = 0; i < listOfFiles.length; i++){ 
       if (listOfFiles[i].getName().contains("SUCCESS")) continue;
