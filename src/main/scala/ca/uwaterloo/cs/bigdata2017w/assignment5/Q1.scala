@@ -32,10 +32,11 @@ import org.apache.spark.sql.SparkSession
 
 
 class Conf(args: Seq[String]) extends ScallopConf(args) {
-  mainOptions = Seq(input, date)
+  mainOptions = Seq(input, date, text, parquet)
   val input = opt[String](descr = "input path", required = true)
   val date = opt[String](descr = "date", required = true)
-  // val text = opt[Boolean](descr = "text format", required = false, default = Some(true))
+  val text = opt[Boolean]()
+  val parquet = opt[Boolean]()
   verify()
 }
 
@@ -47,33 +48,39 @@ object Q1 {
 
     log.info("Input: " + args.input())
     log.info("Date: " + args.date())
-    // log.info("Text format: " + args.text())
+    log.info("Text format: " + args.text())
 
     val conf = new SparkConf().setAppName("Q1")
     val sc = new SparkContext(conf)
     val sparkSession = SparkSession.builder().getOrCreate()
 
-    val lineitemDF = sparkSession.read.parquet("TPC-H-0.1-PARQUET/lineitem")
-    val lineitemRDD = lineitemDF.rdd
-
-    var fileName = ""
-
-    // if (args.text()) {
-      fileName = "/lineitem.tbl"
-    // } else {
-      // fileName = "/lineitem/part-r-00000-06ffba52-de7d-4aa9-a540-0b8fa4a96d6e.snappy.parquet"
-    // }
-
-    val textFile = sc.textFile(args.input() + fileName)
     val date = args.date()
     val count = sc.accumulator(0)
-    textFile
-      .foreach(line => {
-        if (line.split("\\|")(10).contains(date)) {
-          count += 1
-        }
-      })
-    println(lineitemRDD)
+
+    if (args.text()){
+      var fileName = ""
+      fileName = "/lineitem.tbl"
+
+      val textFile = sc.textFile(args.input() + fileName)
+
+      textFile
+        .foreach(line => {
+          if (line.split("\\|")(10).contains(date)) {
+            count += 1
+          }
+        })
+    }
+    else {
+
+      val lineitemDF = sparkSession.read.parquet(args.input() + "/lineitem")
+      val lineitemRDD = lineitemDF.rdd
+      lineitemRDD
+        .foreach(line => {
+          if (line(10) == date) {
+            count += 1
+          }
+        })
+    }
     println("ANSWER=" + count.value)
   }
 }

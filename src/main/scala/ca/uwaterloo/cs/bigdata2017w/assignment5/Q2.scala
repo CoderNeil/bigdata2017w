@@ -23,6 +23,7 @@ import collection.mutable.HashMap
 import scala.collection.JavaConverters._
 import org.apache.hadoop.fs._
 import org.apache.spark.SparkContext
+import org.apache.spark.SparkContext._
 import org.apache.spark.SparkConf
 import org.rogach.scallop._
 import org.apache.spark.Partitioner
@@ -32,10 +33,11 @@ import org.apache.spark.sql.SparkSession
 
 
 class Conf2(args: Seq[String]) extends ScallopConf(args) {
-  mainOptions = Seq(input, date)
+  mainOptions = Seq(input, date, text, parquet)
   val input = opt[String](descr = "input path", required = true)
   val date = opt[String](descr = "date", required = true)
-  // val text = opt[Boolean](descr = "text format", required = false, default = Some(true))
+  val text = opt[Boolean]()
+  val parquet = opt[Boolean]()
   verify()
 }
 
@@ -51,44 +53,70 @@ object Q2 {
 
     val conf = new SparkConf().setAppName("Q2")
     val sc = new SparkContext(conf)
+    val sparkSession = SparkSession.builder().getOrCreate()
 
     var fileName = ""
     val date = args.date()
-    // if (args.text()) {
+    if (args.text()) {
       fileName = "/lineitem.tbl"
-    // } else {
-      // fileName = "/lineitem/part-r-00000-06ffba52-de7d-4aa9-a540-0b8fa4a96d6e.snappy.parquet"
-    // }
 
-    val lineItemFile = sc.textFile(args.input() + fileName)
+      val lineItemFile = sc.textFile(args.input() + fileName)
+        .filter(line => {
+            line.split("\\|")(10).contains(date)
+          })
+        .map(line => {
+          (line.split("\\|")(0), 0)
+          })
+        fileName = "/orders.tbl"
+
+      val orderFile = sc.textFile(args.input() + fileName)
+        .map(line => {
+          val temp = line.split("\\|")
+          (temp(0), temp(6))
+          })
+
+      val output = orderFile.cogroup(lineItemFile)
+        .filter(line => {
+            !line._2._2.isEmpty
+          })
+        .sortByKey(true)
+        .take(20)
+      output
+        .foreach(line => {
+          println("(" + line._2._1.iterator.next() + "," + line._1 + ")")
+        })
+    }
+    else {
+      val lineitemDF = sparkSession.read.parquet(args.input() + "/lineitem")
+      val lineitemRDD = lineitemDF.rdd
       .filter(line => {
-          line.split("\\|")(10).contains(date)
+          line(10) == (date)
         })
       .map(line => {
-        (line.split("\\|")(0), 0)
-        })
-    // if (args.text()) {
-      fileName = "/orders.tbl"
-    // } else {
-      // fileName = "/lineitem/part-r-00000-06ffba52-de7d-4aa9-a540-0b8fa4a96d6e.snappy.parquet"
-    // }
-
-    val orderFile = sc.textFile(args.input() + fileName)
-      .map(line => {
-        val temp = line.split("\\|")
-        (temp(0), temp(6))
+        (line(0).toString, 0)
         })
 
-    val output = orderFile.cogroup(lineItemFile)
-      .filter(line => {
-          !line._2._2.isEmpty
+      println("-----------------------------------")
+      val ordersDF = sparkSession.read.parquet(args.input() + "/orders")
+      val ordersRDD = ordersDF.rdd
+        .map(line => {
+          (line(0).toString, line(6))
+          })
+
+      val output = ordersRDD.cogroup(lineitemRDD)
+        .filter(line => {
+            !line._2._2.isEmpty
+          })
+        .collectAsMap()
+        .toList
+        .sortBy(_._1)
+        // .sortByKey(true)
+        .take(20)
+      output
+        .foreach(line => {
+          println("(" + line._2._1.iterator.next() + "," + line._1 + ")")
         })
-      .sortByKey(true)
-      .take(20)
-    output
-      .foreach(line => {
-        println("(" + line._2._1.iterator.next() + "," + line._1 + ")")
-      })
+    }
   }
 }
 
