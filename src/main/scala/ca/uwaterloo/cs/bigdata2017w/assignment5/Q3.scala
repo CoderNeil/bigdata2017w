@@ -35,7 +35,8 @@ class Conf3(args: Seq[String]) extends ScallopConf(args) {
   mainOptions = Seq(input, date)
   val input = opt[String](descr = "input path", required = true)
   val date = opt[String](descr = "date", required = true)
-  // val text = opt[Boolean](descr = "text format", required = false, default = Some(true))
+  val text = opt[Boolean]()
+  val parquet = opt[Boolean]()
   verify()
 }
 
@@ -51,24 +52,21 @@ object Q3 {
 
     val conf = new SparkConf().setAppName("Q3")
     val sc = new SparkContext(conf)
+    val sparkSession = SparkSession.builder().getOrCreate()
+
 
     var fileName = ""
     val date = args.date()
-    // if (args.text()) {
-      fileName = "/lineitem.tbl"
-    // } else {
-      // fileName = "/lineitem/part-r-00000-06ffba52-de7d-4aa9-a540-0b8fa4a96d6e.snappy.parquet"
-    // }
+
+    if (args.text()) {
+    fileName = "/lineitem.tbl"
 
     val lineItemFile = sc.textFile(args.input() + fileName)
       .filter(line => {
           line.split("\\|")(10).contains(date)
         })
-    // if (args.text()) {
+
       fileName = "/part.tbl"
-    // } else {
-      // fileName = "/lineitem/part-r-00000-06ffba52-de7d-4aa9-a540-0b8fa4a96d6e.snappy.parquet"
-    // }
 
     val partFile = sc.textFile(args.input() + fileName)
       .map(line => {
@@ -99,6 +97,46 @@ object Q3 {
       .foreach(line => {
         println("(" + line._1  + ", " + line._2._1.get + ", " + line._2._2.get + ")")
         })
+    }
+    else {
+      val lineitemDF = sparkSession.read.parquet(args.input() + "/lineitem")
+      val lineitemRDD = lineitemDF.rdd
+        .filter(line => {
+            line(10) == (date)
+          })
+
+        fileName = "/part.tbl"
+
+      val partDF = sparkSession.read.parquet(args.input() + "/part")
+      val partRDD = partDF.rdd
+        .map(line => {
+          (line(0).toString, line(1))
+          })
+        .collectAsMap()
+
+      val supplierDF = sparkSession.read.parquet(args.input() + "/supplier")
+      val supplierRDD = supplierDF.rdd
+        .map(line => {
+          (line(0).toString, line(1))
+          })
+        .collectAsMap()
+
+      val pBroadcast = sc.broadcast(partRDD)
+      val sBroadcast = sc.broadcast(supplierRDD)
+
+      val output = lineitemRDD
+        .map( line => {
+          (line(0).toString, (pBroadcast.value.get(line(1).toString), sBroadcast.value.get(line(2).toString)))
+          })
+        .collectAsMap()
+        .toList
+        .sortBy(_._1)
+        .take(20)
+      output
+        .foreach(line => {
+          println("(" + line._1  + ", " + line._2._1.get + ", " + line._2._2.get + ")")
+          })
+    }
   }
 }
 

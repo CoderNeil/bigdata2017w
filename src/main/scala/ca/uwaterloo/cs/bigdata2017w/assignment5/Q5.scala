@@ -34,7 +34,8 @@ import org.apache.spark.sql.SparkSession
 class Conf5(args: Seq[String]) extends ScallopConf(args) {
   mainOptions = Seq(input)
   val input = opt[String](descr = "input path", required = true)
-  // val text = opt[Boolean](descr = "text format", required = false, default = Some(true))
+  val text = opt[Boolean]()
+  val parquet = opt[Boolean]()
   verify()
 }
 
@@ -50,70 +51,107 @@ object Q5 {
 
     val conf = new SparkConf().setAppName("Q5")
     val sc = new SparkContext(conf)
+    val sparkSession = SparkSession.builder().getOrCreate()
 
     var fileName = ""
+
+    if (args.text()) {
       fileName = "/lineitem.tbl"
 
-    val lineItemFile = sc.textFile(args.input() + fileName)
-      // .filter(line => {
-      //     line.split("\\|")(10).contains(date)
-      //   })
-      .map( line => {
-        val temp = line.split("\\|")
-        (temp(0), temp(10))
-      })
-
-        
-
-      fileName = "/customer.tbl"
-
-    val customerFile = sc.textFile(args.input() + fileName)
-      .map(line => {
-        val temp = line.split("\\|")
-        (temp(0), temp(3))
-        })
-      .collectAsMap()
-
-    // fileName = "/nation.tbl"
-    // val nationFile = sc.textFile(args.input() + fileName)
-    //   .map(line => {
-    //     val temp = line.split("\\|")
-    //     (temp(0), temp(1))
-    //     })
-    //   .collectAsMap()
-
-    val cBroadcast = sc.broadcast(customerFile)
-    // val nBroadcast = sc.broadcast(nationFile)
-
-    fileName = "/orders.tbl"
-
-    val orderFile = sc.textFile(args.input() + fileName)
-      .map( line => {
-        val temp = line.split("\\|")
-        (temp(0), temp(1))
-        })
-      .filter( line => {
-        val temp = cBroadcast.value(line._2).toInt
-        temp == 24 || temp == 3
+      val lineItemFile = sc.textFile(args.input() + fileName)
+        // .filter(line => {
+        //     line.split("\\|")(10).contains(date)
+        //   })
+        .map( line => {
+          val temp = line.split("\\|")
+          (temp(0), temp(10))
         })
 
-    val output = orderFile.cogroup(lineItemFile)
-      .filter(line => {
-          !line._2._1.isEmpty && !line._2._2.isEmpty
-        })
-      .flatMap( line => {
-        // val temp = cBroadcast.value(line._2._1.iterator.next())
-        line._2._2.map(lines => {
-          ((cBroadcast.value(line._2._1.iterator.next()), lines), 1)
+          
+
+        fileName = "/customer.tbl"
+
+      val customerFile = sc.textFile(args.input() + fileName)
+        .map(line => {
+          val temp = line.split("\\|")
+          (temp(0), temp(3))
           })
-        .toList
+        .collectAsMap()
+
+      val cBroadcast = sc.broadcast(customerFile)
+
+      fileName = "/orders.tbl"
+
+      val orderFile = sc.textFile(args.input() + fileName)
+        .map( line => {
+          val temp = line.split("\\|")
+          (temp(0), temp(1))
+          })
+        .filter( line => {
+          val temp = cBroadcast.value(line._2).toInt
+          temp == 24 || temp == 3
+          })
+
+      val output = orderFile.cogroup(lineItemFile)
+        .filter(line => {
+            !line._2._1.isEmpty && !line._2._2.isEmpty
+          })
+        .flatMap( line => {
+          line._2._2.map(lines => {
+            ((cBroadcast.value(line._2._1.iterator.next()), lines), 1)
+            })
+          .toList
+          })
+        .reduceByKey(_+_)
+        .collect()
+      output
+        .foreach(line => {
+          println("(" + line._1._1  + ", " + line._1._2 + ", " + line._2 + ")")
+          })
+    }
+    else {
+      val lineitemDF = sparkSession.read.parquet(args.input() + "/lineitem")
+      val lineitemRDD = lineitemDF.rdd
+        .map( line => {
+          (line(0).toString, line(10))
         })
-      .reduceByKey(_+_)
-      .collect()
-    output
-      .foreach(line => {
-        println("(" + line._1._1  + ", " + line._1._2 + ", " + line._2 + ")")
-        })
+
+      val customerDF = sparkSession.read.parquet(args.input() + "/customer")
+      val customerRDD = customerDF.rdd
+        .map(line => {
+          (line(0).toString, line(3))
+          })
+        .collectAsMap()
+
+      val cBroadcast = sc.broadcast(customerRDD)
+
+      val ordersDF = sparkSession.read.parquet(args.input() + "/orders")
+      val ordersRDD = ordersDF.rdd
+        .map( line => {
+          (line(0).toString, line(1))
+          })
+        .filter( line => {
+          val temp = cBroadcast.value(line._2.toString).toString.toInt
+          temp == 24 || temp == 3
+          })
+
+      val output = ordersRDD.cogroup(lineitemRDD)
+        .filter(line => {
+            !line._2._1.isEmpty && !line._2._2.isEmpty
+          })
+        .flatMap( line => {
+          line._2._2.map(lines => {
+            ((cBroadcast.value(line._2._1.iterator.next().toString), lines), 1)
+            })
+          .toList
+          })
+        .reduceByKey(_+_)
+        .collect()
+      output
+        .foreach(line => {
+          println("(" + line._1._1  + ", " + line._1._2 + ", " + line._2 + ")")
+          })
+    }
   }
 }
 

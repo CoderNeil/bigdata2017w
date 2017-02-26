@@ -35,7 +35,8 @@ class Conf6(args: Seq[String]) extends ScallopConf(args) {
   mainOptions = Seq(input, date)
   val input = opt[String](descr = "input path", required = true)
   val date = opt[String](descr = "date", required = true)
-  // val text = opt[Boolean](descr = "text format", required = false, default = Some(true))
+  val text = opt[Boolean]()
+  val parquet = opt[Boolean]()
   verify()
 }
 
@@ -51,81 +52,158 @@ object Q6 {
 
     val conf = new SparkConf().setAppName("Q6")
     val sc = new SparkContext(conf)
+    val sparkSession = SparkSession.builder().getOrCreate()
 
     var fileName = ""
     val date = args.date()
-      fileName = "/lineitem.tbl"
 
-    val lineItemFile = sc.textFile(args.input() + fileName)
-      .map(line => {
-        line.split("\\|")
-        })
+    if (args.text()) {
+        fileName = "/lineitem.tbl"
+
+      val lineItemFile = sc.textFile(args.input() + fileName)
+        .map(line => {
+          line.split("\\|")
+          })
+        .filter(line => {
+            line(10).contains(date)
+          })
+        .keyBy(line => {
+          (line(8), line(9))
+          })
+        .groupByKey()
+
+      val sumQty = lineItemFile
+        .map(line => {
+          line._2.iterator.map(lines => {
+            lines(4).toDouble
+            })
+          .toList.sum
+          })
+        .sum()
+
+      val sumBasePrice = lineItemFile
+        .map(line => {
+          line._2.iterator.map(lines => {
+            lines(5).toDouble
+            })
+          .toList.sum
+          })
+        .sum()
+
+      val sumDiscount = lineItemFile
+        .map(line => {
+          line._2.iterator.map(lines => {
+            lines(6).toDouble
+            })
+          .toList.sum
+          })
+        .sum()
+
+      val sumDiscPrice = lineItemFile
+        .map(line => {
+          line._2.iterator.map(lines => {
+            lines(5).toDouble * ( 1 - lines(6).toDouble)
+            })
+          .toList.sum
+          })
+        .sum()
+
+      val sumCharge = lineItemFile
+        .map(line => {
+          line._2.iterator.map(lines => {
+            lines(5).toDouble * ( 1 - lines(6).toDouble) * ( 1 + lines(7).toDouble)
+            })
+          .toList.sum
+          })
+        .sum()
+
+      val count = lineItemFile.count()
+      val avgQty = sumQty / count
+      val avgPrice = sumBasePrice / count
+      val avgDisc = sumDiscPrice / count
+      
+      val output = lineItemFile
+        .collect()
+        .foreach(line => {
+          println("(" + line._1._1  + ", " + line._1._2 + ", " +
+           sumQty + ", " + sumBasePrice + ", " + sumDiscPrice + ", " + 
+           sumCharge + ", " + avgQty + ", " +  avgPrice + ", " + 
+           avgDisc + ", " + count.toDouble + ")")
+          })
+    }
+    else {
+      val lineitemDF = sparkSession.read.parquet(args.input() + "/lineitem")
+      val lineitemRDD = lineitemDF.rdd
+      // .map(line => {
+      //   line.split("\\|")
+      //   })
       .filter(line => {
-          line(10).contains(date)
+          line(10) == (date)
         })
       .keyBy(line => {
         (line(8), line(9))
         })
       .groupByKey()
 
-    val sumQty = lineItemFile
+    val sumQty = lineitemRDD
       .map(line => {
         line._2.iterator.map(lines => {
-          lines(4).toDouble
+          lines(4).toString.toDouble
           })
         .toList.sum
         })
       .sum()
 
-    val sumBasePrice = lineItemFile
+    val sumBasePrice = lineitemRDD
       .map(line => {
         line._2.iterator.map(lines => {
-          lines(5).toDouble
+          lines(5).toString.toDouble
           })
         .toList.sum
         })
       .sum()
 
-    val sumDiscount = lineItemFile
+    val sumDiscount = lineitemRDD
       .map(line => {
         line._2.iterator.map(lines => {
-          lines(6).toDouble
+          lines(6).toString.toDouble
           })
         .toList.sum
         })
       .sum()
 
-    val sumDiscPrice = lineItemFile
+    val sumDiscPrice = lineitemRDD
       .map(line => {
         line._2.iterator.map(lines => {
-          lines(5).toDouble * ( 1 - lines(6).toDouble)
+          lines(5).toString.toDouble * ( 1 - lines(6).toString.toDouble)
           })
         .toList.sum
         })
       .sum()
 
-    val sumCharge = lineItemFile
+    val sumCharge = lineitemRDD
       .map(line => {
         line._2.iterator.map(lines => {
-          lines(5).toDouble * ( 1 - lines(6).toDouble) * ( 1 + lines(7).toDouble)
+          lines(5).toString.toDouble * ( 1 - lines(6).toString.toDouble) * ( 1 + lines(7).toString.toDouble)
           })
         .toList.sum
         })
       .sum()
 
-    val count = lineItemFile.count()
+    val count = lineitemRDD.count()
     val avgQty = sumQty / count
     val avgPrice = sumBasePrice / count
     val avgDisc = sumDiscPrice / count
     
-    val output = lineItemFile
+    val output = lineitemRDD
       .collect()
       .foreach(line => {
         println("(" + line._1._1  + ", " + line._1._2 + ", " +
          sumQty + ", " + sumBasePrice + ", " + sumDiscPrice + ", " + 
          sumCharge + ", " + avgQty + ", " +  avgPrice + ", " + 
-         avgDisc + ", " + count.toDouble + ")")
+         avgDisc + ", " + count.toString.toDouble + ")")
         })
+    }
   }
 }
 
