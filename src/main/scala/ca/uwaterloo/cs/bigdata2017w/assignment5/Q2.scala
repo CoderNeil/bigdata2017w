@@ -96,7 +96,6 @@ object Q2 {
         (line(0).toString, 0)
         })
 
-      println("-----------------------------------")
       val ordersDF = sparkSession.read.parquet(args.input() + "/orders")
       val ordersRDD = ordersDF.rdd
         .map(line => {
