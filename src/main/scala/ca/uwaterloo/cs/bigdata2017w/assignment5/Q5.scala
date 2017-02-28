@@ -67,14 +67,12 @@ object Q5 {
           (temp(0).toInt, temp(10).substring(0,7))
         })
 
-          
-
         fileName = "/customer.tbl"
 
       val customerFile = sc.textFile(args.input() + fileName)
         .map(line => {
           val temp = line.split("\\|")
-          (temp(0).toInt, temp(3))
+          (temp(0).toInt, temp(3).toInt)
           })
         .collectAsMap()
 
@@ -85,10 +83,10 @@ object Q5 {
       val orderFile = sc.textFile(args.input() + fileName)
         .map( line => {
           val temp = line.split("\\|")
-          (temp(0).toInt, temp(1))
+          (temp(0).toInt, temp(1).toInt)
           })
         .filter( line => {
-          val temp = cBroadcast.value(line._2.toInt).toInt
+          val temp = cBroadcast.value(line._2)
           temp == 24 || temp == 3
           })
 
@@ -98,7 +96,7 @@ object Q5 {
           })
         .flatMap( line => {
           line._2._2.map(lines => {
-            ((cBroadcast.value(line._2._1.iterator.next().toInt), lines), 1)
+            ((cBroadcast.value(line._2._1.iterator.next()), lines), 1)
             })
           .toList
           })
@@ -106,7 +104,7 @@ object Q5 {
         .collect()
       output
         .foreach(line => {
-          println("(" + line._1._1  + "," + line._1._2 + "," + line._2 + ")")
+          println(line._1._1  + " " + line._1._2 + " " + line._2)
           })
     }
     else {
@@ -119,7 +117,7 @@ object Q5 {
       val customerDF = sparkSession.read.parquet(args.input() + "/customer")
       val customerRDD = customerDF.rdd
         .map(line => {
-          (line(0).toString.toInt, line(3))
+          (line(0).toString.toInt, line(3).toString.toInt)
           })
         .collectAsMap()
 
@@ -128,10 +126,10 @@ object Q5 {
       val ordersDF = sparkSession.read.parquet(args.input() + "/orders")
       val ordersRDD = ordersDF.rdd
         .map( line => {
-          (line(0).toString.toInt, line(1))
+          (line(0).toString.toInt, line(1).toString.toInt)
           })
         .filter( line => {
-          val temp = cBroadcast.value(line._2.toString.toInt).toString.toInt
+          val temp = cBroadcast.value(line._2)
           temp == 24 || temp == 3
           })
 
@@ -141,7 +139,7 @@ object Q5 {
           })
         .flatMap( line => {
           line._2._2.map(lines => {
-            ((cBroadcast.value(line._2._1.iterator.next().toString.toInt), lines), 1)
+            ((cBroadcast.value(line._2._1.iterator.next()), lines), 1)
             })
           .toList
           })
@@ -149,7 +147,7 @@ object Q5 {
         .collect()
       output
         .foreach(line => {
-          println("(" + line._1._1  + "," + line._1._2 + "," + line._2 + ")")
+          println(line._1._1  + " " + line._1._2 + " " + line._2)
           })
     }
   }
