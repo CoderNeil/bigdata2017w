@@ -104,7 +104,7 @@ object Q5 {
         .collect()
       output
         .foreach(line => {
-          println(line._1._1  + " " + line._1._2 + " " + line._2)
+          println("(" + line._1._1  + "," + line._1._2 + "," + line._2 + ")")
           })
     }
     else {
@@ -147,7 +147,7 @@ object Q5 {
         .collect()
       output
         .foreach(line => {
-          println(line._1._1  + " " + line._1._2 + " " + line._2)
+          println("(" + line._1._1  + "," + line._1._2 + "," + line._2 + ")")
           })
     }
   }
