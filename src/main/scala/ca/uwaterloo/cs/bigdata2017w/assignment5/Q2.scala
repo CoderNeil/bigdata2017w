@@ -65,14 +65,14 @@ object Q2 {
             line.split("\\|")(10).contains(date)
           })
         .map(line => {
-          (line.split("\\|")(0), 0)
+          (line.split("\\|")(0).toInt, 0)
           })
         fileName = "/orders.tbl"
 
       val orderFile = sc.textFile(args.input() + fileName)
         .map(line => {
           val temp = line.split("\\|")
-          (temp(0), temp(6))
+          (temp(0).toInt, temp(6))
           })
 
       val output = orderFile.cogroup(lineItemFile)
@@ -93,23 +93,20 @@ object Q2 {
           line(10) == (date)
         })
       .map(line => {
-        (line(0).toString, 0)
+        (line(0).toString.toInt, 0)
         })
 
       val ordersDF = sparkSession.read.parquet(args.input() + "/orders")
       val ordersRDD = ordersDF.rdd
         .map(line => {
-          (line(0).toString, line(6))
+          (line(0).toString.toInt, line(6))
           })
 
       val output = ordersRDD.cogroup(lineitemRDD)
         .filter(line => {
             !line._2._2.isEmpty
           })
-        .collectAsMap()
-        .toList
-        .sortBy(_._1)
-        // .sortByKey(true)
+        .sortByKey(true)
         .take(20)
       output
         .foreach(line => {

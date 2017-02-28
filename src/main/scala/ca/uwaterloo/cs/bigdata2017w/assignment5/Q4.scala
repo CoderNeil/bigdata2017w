@@ -65,7 +65,7 @@ object Q4 {
             line.split("\\|")(10).contains(date)
           })
         .map( line => {
-          (line.split("\\|")(0), 0)
+          (line.split("\\|")(0).toInt, 0)
         })
 
           fileName = "/orders.tbl"
@@ -73,7 +73,7 @@ object Q4 {
       val orderFile = sc.textFile(args.input() + fileName)
         .map( line => {
           val temp = line.split("\\|")
-          (temp(0), temp(1))
+          (temp(0).toInt, temp(1))
           })
 
         fileName = "/customer.tbl"
@@ -81,7 +81,7 @@ object Q4 {
       val customerFile = sc.textFile(args.input() + fileName)
         .map(line => {
           val temp = line.split("\\|")
-          (temp(0), temp(3))
+          (temp(0).toInt, temp(3))
           })
         .collectAsMap()
 
@@ -89,7 +89,7 @@ object Q4 {
       val nationFile = sc.textFile(args.input() + fileName)
         .map(line => {
           val temp = line.split("\\|")
-          (temp(0), temp(1))
+          (temp(0).toInt, temp(1))
           })
         .collectAsMap()
 
@@ -101,7 +101,7 @@ object Q4 {
             !line._2._2.isEmpty
           })
         .map( line => {
-          val temp = cBroadcast.value(line._2._1.iterator.next())
+          val temp = cBroadcast.value(line._2._1.iterator.next().toInt)
           (temp.toInt, 1)
           })
         .reduceByKey(_+_)
@@ -110,7 +110,7 @@ object Q4 {
         .sortBy(_._1)
       output
         .foreach(line => {
-          println("(" + line._1  + ", " + nBroadcast.value(line._1.toString) + ", " + line._2 + ")")
+          println("(" + line._1  + "," + nBroadcast.value(line._1.toString.toInt) + "," + line._2 + ")")
           })
     }
     else {
@@ -120,7 +120,7 @@ object Q4 {
             line(10) == (date)
           })
         .map( line => {
-          (line(0).toString, 0)
+          (line(0).toString.toInt, 0)
         })
 
           fileName = "/orders.tbl"
@@ -128,7 +128,7 @@ object Q4 {
       val ordersDF = sparkSession.read.parquet(args.input() + "/orders")
       val ordersRDD = ordersDF.rdd
         .map( line => {
-          (line(0).toString, line(1))
+          (line(0).toString.toInt, line(1))
           })
 
         fileName = "/customer.tbl"
@@ -136,14 +136,14 @@ object Q4 {
       val customerDF = sparkSession.read.parquet(args.input() + "/customer")
       val customerRDD = customerDF.rdd
         .map(line => {
-          (line(0).toString, line(3))
+          (line(0).toString.toInt, line(3))
           })
         .collectAsMap()
 
       val nationDF = sparkSession.read.parquet(args.input() + "/nation")
       val nationRDD = nationDF.rdd
         .map(line => {
-          (line(0).toString, line(1))
+          (line(0).toString.toInt, line(1))
           })
         .collectAsMap()
 
@@ -155,7 +155,7 @@ object Q4 {
             !line._2._2.isEmpty
           })
         .map( line => {
-          val temp = cBroadcast.value(line._2._1.iterator.next().toString)
+          val temp = cBroadcast.value(line._2._1.iterator.next().toString.toInt)
           (temp.toString.toInt, 1)
           })
         .reduceByKey(_+_)
@@ -164,7 +164,7 @@ object Q4 {
         .sortBy(_._1)
       output
         .foreach(line => {
-          println("(" + line._1  + ", " + nBroadcast.value(line._1.toString) + ", " + line._2 + ")")
+          println("(" + line._1  + "," + nBroadcast.value(line._1.toString.toInt) + "," + line._2 + ")")
           })
     }
   }

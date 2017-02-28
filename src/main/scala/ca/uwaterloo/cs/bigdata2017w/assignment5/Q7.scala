@@ -104,8 +104,8 @@ object Q7 {
       output
         .foreach(line => {
           val temp = 
-          println("(" + line._2._1  + ", " + line._2._2 + ", " + 
-            line._1 + ", " + line._2._3 + ", " + line._2._4 + ")")
+          println("(" + line._2._1  + "," + line._2._2 + "," + 
+            line._1 + "," + line._2._3 + "," + line._2._4 + ")")
           })
     }
     else {
@@ -155,8 +155,8 @@ object Q7 {
       output
         .foreach(line => {
           val temp = 
-          println("(" + line._2._1  + ", " + line._2._2 + ", " + 
-            line._1 + ", " + line._2._3 + ", " + line._2._4 + ")")
+          println("(" + line._2._1  + "," + line._2._2 + "," + 
+            line._1 + "," + line._2._3 + "," + line._2._4 + ")")
           })
     }
   }

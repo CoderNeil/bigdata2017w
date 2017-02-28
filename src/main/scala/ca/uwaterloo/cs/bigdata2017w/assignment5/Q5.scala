@@ -64,7 +64,7 @@ object Q5 {
         //   })
         .map( line => {
           val temp = line.split("\\|")
-          (temp(0), temp(10))
+          (temp(0).toInt, temp(10).substring(0,7))
         })
 
           
@@ -74,7 +74,7 @@ object Q5 {
       val customerFile = sc.textFile(args.input() + fileName)
         .map(line => {
           val temp = line.split("\\|")
-          (temp(0), temp(3))
+          (temp(0).toInt, temp(3))
           })
         .collectAsMap()
 
@@ -85,10 +85,10 @@ object Q5 {
       val orderFile = sc.textFile(args.input() + fileName)
         .map( line => {
           val temp = line.split("\\|")
-          (temp(0), temp(1))
+          (temp(0).toInt, temp(1))
           })
         .filter( line => {
-          val temp = cBroadcast.value(line._2).toInt
+          val temp = cBroadcast.value(line._2.toInt).toInt
           temp == 24 || temp == 3
           })
 
@@ -98,7 +98,7 @@ object Q5 {
           })
         .flatMap( line => {
           line._2._2.map(lines => {
-            ((cBroadcast.value(line._2._1.iterator.next()), lines), 1)
+            ((cBroadcast.value(line._2._1.iterator.next().toInt), lines), 1)
             })
           .toList
           })
@@ -106,20 +106,20 @@ object Q5 {
         .collect()
       output
         .foreach(line => {
-          println("(" + line._1._1  + ", " + line._1._2 + ", " + line._2 + ")")
+          println("(" + line._1._1  + "," + line._1._2 + "," + line._2 + ")")
           })
     }
     else {
       val lineitemDF = sparkSession.read.parquet(args.input() + "/lineitem")
       val lineitemRDD = lineitemDF.rdd
         .map( line => {
-          (line(0).toString, line(10))
+          (line(0).toString.toInt, line(10).toString.substring(0,7))
         })
 
       val customerDF = sparkSession.read.parquet(args.input() + "/customer")
       val customerRDD = customerDF.rdd
         .map(line => {
-          (line(0).toString, line(3))
+          (line(0).toString.toInt, line(3))
           })
         .collectAsMap()
 
@@ -128,10 +128,10 @@ object Q5 {
       val ordersDF = sparkSession.read.parquet(args.input() + "/orders")
       val ordersRDD = ordersDF.rdd
         .map( line => {
-          (line(0).toString, line(1))
+          (line(0).toString.toInt, line(1))
           })
         .filter( line => {
-          val temp = cBroadcast.value(line._2.toString).toString.toInt
+          val temp = cBroadcast.value(line._2.toString.toInt).toString.toInt
           temp == 24 || temp == 3
           })
 
@@ -141,7 +141,7 @@ object Q5 {
           })
         .flatMap( line => {
           line._2._2.map(lines => {
-            ((cBroadcast.value(line._2._1.iterator.next().toString), lines), 1)
+            ((cBroadcast.value(line._2._1.iterator.next().toString.toInt), lines), 1)
             })
           .toList
           })
@@ -149,7 +149,7 @@ object Q5 {
         .collect()
       output
         .foreach(line => {
-          println("(" + line._1._1  + ", " + line._1._2 + ", " + line._2 + ")")
+          println("(" + line._1._1  + "," + line._1._2 + "," + line._2 + ")")
           })
     }
   }

@@ -60,13 +60,14 @@ object Q6 {
     if (args.text()) {
         fileName = "/lineitem.tbl"
 
-      val lineItemFile = sc.textFile(args.input() + fileName)
+      val lineItemFile1 = sc.textFile(args.input() + fileName)
         .map(line => {
           line.split("\\|")
           })
         .filter(line => {
             line(10).contains(date)
           })
+      val lineItemFile = lineItemFile1
         .keyBy(line => {
           (line(8), line(9))
           })
@@ -117,29 +118,30 @@ object Q6 {
           })
         .sum()
 
-      val count = lineItemFile.count()
+      val count = lineItemFile1.count()
       val avgQty = sumQty / count
       val avgPrice = sumBasePrice / count
-      val avgDisc = sumDiscPrice / count
+      val avgDisc = sumDiscount / count
       
       val output = lineItemFile
         .collect()
         .foreach(line => {
-          println("(" + line._1._1  + ", " + line._1._2 + ", " +
-           sumQty + ", " + sumBasePrice + ", " + sumDiscPrice + ", " + 
-           sumCharge + ", " + avgQty + ", " +  avgPrice + ", " + 
-           avgDisc + ", " + count.toDouble + ")")
-          })
+          println("(" + line._1._1  + "," + line._1._2 + "," +
+           sumQty + "," + sumBasePrice + "," + sumDiscPrice + "," + 
+           sumCharge + "," + avgQty + "," +  avgPrice + "," + 
+           avgDisc + "," + count.toString.toDouble + ")")
+        })
     }
     else {
       val lineitemDF = sparkSession.read.parquet(args.input() + "/lineitem")
-      val lineitemRDD = lineitemDF.rdd
+      val lineitemRDD1 = lineitemDF.rdd
       // .map(line => {
       //   line.split("\\|")
       //   })
       .filter(line => {
           line(10) == (date)
         })
+      val lineitemRDD = lineitemRDD1
       .keyBy(line => {
         (line(8), line(9))
         })
@@ -190,18 +192,18 @@ object Q6 {
         })
       .sum()
 
-    val count = lineitemRDD.count()
+    val count = lineitemRDD1.count()
     val avgQty = sumQty / count
     val avgPrice = sumBasePrice / count
-    val avgDisc = sumDiscPrice / count
+    val avgDisc = sumDiscount / count
     
     val output = lineitemRDD
       .collect()
       .foreach(line => {
-        println("(" + line._1._1  + ", " + line._1._2 + ", " +
-         sumQty + ", " + sumBasePrice + ", " + sumDiscPrice + ", " + 
-         sumCharge + ", " + avgQty + ", " +  avgPrice + ", " + 
-         avgDisc + ", " + count.toString.toDouble + ")")
+        println("(" + line._1._1  + "," + line._1._2 + "," +
+         sumQty + "," + sumBasePrice + "," + sumDiscPrice + "," + 
+         sumCharge + "," + avgQty + "," +  avgPrice + "," + 
+         avgDisc + "," + count.toString.toDouble + ")")
         })
     }
   }

@@ -71,7 +71,7 @@ object Q3 {
     val partFile = sc.textFile(args.input() + fileName)
       .map(line => {
         val temp = line.split("\\|")
-        (temp(0), temp(1))
+        (temp(0).toInt, temp(1))
         })
       .collectAsMap()
 
@@ -79,7 +79,7 @@ object Q3 {
     val supplierFile = sc.textFile(args.input() + fileName)
       .map(line => {
         val temp = line.split("\\|")
-        (temp(0), temp(1))
+        (temp(0).toInt, temp(1))
         })
       .collectAsMap()
 
@@ -89,13 +89,13 @@ object Q3 {
     val output = lineItemFile
       .map( line => {
         val temp = line.split("\\|")
-        (temp(0), (pBroadcast.value.get(temp(1)), sBroadcast.value.get(temp(2))))
+        (temp(0).toInt, (pBroadcast.value.get(temp(1).toInt), sBroadcast.value.get(temp(2).toInt)))
         })
       .sortByKey(true)
       .take(20)
     output
       .foreach(line => {
-        println("(" + line._1  + ", " + line._2._1.get + ", " + line._2._2.get + ")")
+        println("(" + line._1  + "," + line._2._1.get + "," + line._2._2.get + ")")
         })
     }
     else {
@@ -110,14 +110,14 @@ object Q3 {
       val partDF = sparkSession.read.parquet(args.input() + "/part")
       val partRDD = partDF.rdd
         .map(line => {
-          (line(0).toString, line(1))
+          (line(0).toString.toInt, line(1))
           })
         .collectAsMap()
 
       val supplierDF = sparkSession.read.parquet(args.input() + "/supplier")
       val supplierRDD = supplierDF.rdd
         .map(line => {
-          (line(0).toString, line(1))
+          (line(0).toString.toInt, line(1))
           })
         .collectAsMap()
 
@@ -126,15 +126,13 @@ object Q3 {
 
       val output = lineitemRDD
         .map( line => {
-          (line(0).toString, (pBroadcast.value.get(line(1).toString), sBroadcast.value.get(line(2).toString)))
+          (line(0).toString.toInt, (pBroadcast.value.get(line(1).toString.toInt), sBroadcast.value.get(line(2).toString.toInt)))
           })
-        .collectAsMap()
-        .toList
-        .sortBy(_._1)
+        .sortByKey(true)
         .take(20)
       output
         .foreach(line => {
-          println("(" + line._1  + ", " + line._2._1.get + ", " + line._2._2.get + ")")
+          println("(" + line._1  + "," + line._2._1.get + "," + line._2._2.get + ")")
           })
     }
   }
