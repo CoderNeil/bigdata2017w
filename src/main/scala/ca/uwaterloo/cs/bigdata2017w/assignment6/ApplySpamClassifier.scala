@@ -53,7 +53,7 @@ object ApplySpamClassifier {
     // This is the main learner:
     // val delta = 0.002
 
-    val textFile = sc.textFile(args.model() + "/part-00000")
+    val textFile = sc.textFile(args.model())
     .map( line => {
       val tokens = line.split(",")
       (tokens(0).substring(1, tokens(0).length).toInt, tokens(1).substring(0, tokens(1).length - 1).toDouble)

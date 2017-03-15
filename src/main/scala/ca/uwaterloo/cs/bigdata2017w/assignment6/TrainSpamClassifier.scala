@@ -54,7 +54,7 @@ object TrainSpamClassifier {
     var textFile = sc.textFile(args.input())
 
     val shuff = args.shuffle()
-
+    val mod = args.model()
     if (shuff){
       textFile = textFile
       .map( line => {
@@ -104,6 +104,6 @@ object TrainSpamClassifier {
 
       // Then run the trainer...
 
-    trained.saveAsTextFile(args.model())
+    trained.saveAsTextFile(mod)
   }
 }
